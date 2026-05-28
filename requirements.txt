@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+alembic
+motor
+beanie
+redis
+python-dotenv
+passlib[bcrypt]
+python-jose
+python-multipart
+email-validator
