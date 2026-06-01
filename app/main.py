@@ -2,13 +2,19 @@ from contextlib import asynccontextmanager
 from importlib import import_module
 from typing import Iterator
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy import text
 
+from app.common.exceptions.exception_handlers import (
+    global_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
 from app.mysql.init_db import init_db
 from app.mysql.session import engine
 from app.mongodb.database import connect_mongo
-from app.redis.redis_client import redis_client
+from app.cache.redis_client import redis_client
 
 
 def get_route_modules() -> list[str]:
@@ -54,6 +60,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, global_exception_handler)
 
 
 @app.get("/", tags=["Health"])
