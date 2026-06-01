@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
+from fastapi import Form
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -57,6 +58,31 @@ class UserAdminCreate(UserBase):
     def validate_password(cls, v: str) -> str:
         return validate_password_strength(v)
 
+    @classmethod
+    def as_form(
+        cls,
+        name: str = Form(...),
+        email: EmailStr = Form(...),
+        password: str = Form(...),
+        phone: Optional[str] = Form(None),
+        avatar_url: Optional[str] = Form(None),
+        role: UserRole = Form(UserRole.user),
+        is_verified: bool = Form(False),
+        is_active: bool = Form(True),
+    ) -> "UserAdminCreate":
+        print("AS_FORM CALLED")
+        print(name, email)
+        return cls(
+            name=name,
+            email=email,
+            password=password,
+            phone=phone,
+            avatar_url=avatar_url,
+            role=role,
+            is_verified=is_verified,
+            is_active=is_active,
+        )
+
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
@@ -80,6 +106,29 @@ class UserAdminUpdate(BaseModel):
         if v is None:
             return v
         return validate_password_strength(v)
+
+    @classmethod
+    def as_form(
+        cls,
+        name: Optional[str] = Form(None),
+        email: Optional[EmailStr] = Form(None),
+        phone: Optional[str] = Form(None),
+        avatar_url: Optional[str] = Form(None),
+        role: Optional[UserRole] = Form(None),
+        is_verified: Optional[bool] = Form(None),
+        is_active: Optional[bool] = Form(None),
+        password: Optional[str] = Form(None),
+    ) -> "UserAdminUpdate":
+        return cls(
+            name=name,
+            email=email,
+            phone=phone,
+            avatar_url=avatar_url,
+            role=role,
+            is_verified=is_verified,
+            is_active=is_active,
+            password=password,
+        )
 
 
 class UserResponse(UserBase):

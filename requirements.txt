@@ -11,3 +11,4 @@ passlib[bcrypt]
 python-jose
 python-multipart
 email-validator
+cloudinary

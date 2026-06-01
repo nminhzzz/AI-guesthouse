@@ -130,6 +130,13 @@ def update_user_admin(db: Session, user: User, payload: UserAdminUpdate) -> User
     return user
 
 
+def update_user_avatar(db: Session, user: User, avatar_url: str) -> User:
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def delete_user(db: Session, user: User, *, hard_delete: bool = False) -> None:
     if hard_delete:
         db.delete(user)

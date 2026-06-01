@@ -45,3 +45,11 @@ def check_register_rate_limit(ip: str) -> None:
         settings.REGISTER_RATE_LIMIT,
         settings.REGISTER_RATE_WINDOW_SECONDS,
     )
+
+
+def check_user_write_rate_limit(ip: str) -> None:
+    _increment_or_block(
+        f"user_write_attempts:ip:{ip}",
+        settings.USER_WRITE_RATE_LIMIT,
+        settings.USER_WRITE_RATE_WINDOW_SECONDS,
+    )

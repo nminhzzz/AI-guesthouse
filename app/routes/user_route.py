@@ -1,7 +1,8 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.orm import Session
+from uuid import uuid4
 
 from app.common.schemas.pagination_schema import PaginatedData
 from app.common.schemas.response_schema import ApiResponse
@@ -23,10 +24,46 @@ from app.services.user_service import (
     get_user_by_email,
     get_user_by_id,
     list_users,
+    update_user_avatar,
     update_user_admin,
 )
+from app.utils.rate_limiter import check_user_write_rate_limit
 
 router = APIRouter(prefix="/users", tags=["Users"])
+MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+async def _upload_avatar_to_cloudinary(avatar: UploadFile, user_prefix: str) -> str:
+    if avatar.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPEG, PNG, and WEBP files are allowed",
+        )
+
+    file_bytes = await avatar.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(file_bytes) > MAX_AVATAR_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    try:
+        from app.utils.cloudinary import upload_image
+
+        upload_result = upload_image(
+            file_bytes=file_bytes,
+            filename=f"{user_prefix}_{uuid4().hex}",
+            folder="ai_guesthouse/users/avatars",
+        )
+    except Exception as exc:
+        print(exc)
+
+        raise HTTPException(status_code=500, detail=f"Avatar upload failed: {str(exc)}") from exc
+
+    avatar_url = upload_result.get("secure_url")
+    if not avatar_url:
+        raise HTTPException(status_code=500, detail="Cloudinary did not return image URL")
+    return avatar_url
 
 
 @router.get("", response_model=ApiResponse[PaginatedData[UserResponse]])
@@ -67,11 +104,51 @@ def get_users(
     )
 
 
+@router.post("/me/avatar", response_model=ApiResponse[UserResponse])
+async def upload_my_avatar(
+    avatar: UploadFile = File(...),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client_ip = request.client.host if request and request.client else "unknown"
+    check_user_write_rate_limit(client_ip)
+
+    old_avatar_url = current_user.avatar_url
+    avatar_url = await _upload_avatar_to_cloudinary(
+        avatar=avatar,
+        user_prefix=f"user_{current_user.id}",
+    )
+
+    if old_avatar_url and old_avatar_url != avatar_url:
+        try:
+            from app.utils.cloudinary import delete_image_by_url
+
+            delete_image_by_url(old_avatar_url)
+        except Exception:
+            # Don't block avatar update when cleanup fails.
+            pass
+
+    user = update_user_avatar(db, current_user, avatar_url)
+    return ApiResponse.success(
+        data=UserResponse.model_validate(user),
+        message="Avatar uploaded successfully",
+    )
+
+
+@router.get("/me", response_model=ApiResponse[UserResponse])
+def get_me(current_user: User = Depends(get_current_user)):
+    return ApiResponse.success(
+        data=UserResponse.model_validate(current_user),
+        message="Current user fetched successfully",
+    )
+
+
 @router.get("/{user_id}", response_model=ApiResponse[UserResponse])
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(get_current_admin),
 ):
     user = get_user_by_id(db, user_id)
     if not user:
@@ -84,14 +161,26 @@ def get_user(
 
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
-def create_user(
-    payload: UserAdminCreate,
+async def create_user(
+    payload: UserAdminCreate = Depends(UserAdminCreate.as_form),
+    avatar: UploadFile | None = File(None),
+    request: Request = None,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin),
 ):
+    print("CREATE USER ROUTE HIT")
+    client_ip = request.client.host if request and request.client else "unknown"
+    check_user_write_rate_limit(client_ip)
+
     existing = get_user_by_email(db, payload.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
+
+    if avatar is not None:
+        payload.avatar_url = await _upload_avatar_to_cloudinary(
+            avatar=avatar,
+            user_prefix=f"user_new_{payload.email}",
+        )
 
     user = create_user_admin(db, payload)
     return ApiResponse.success(
@@ -101,12 +190,17 @@ def create_user(
 
 
 @router.put("/{user_id}", response_model=ApiResponse[UserResponse])
-def update_user(
+async def update_user(
     user_id: int,
-    payload: UserAdminUpdate,
+    payload: UserAdminUpdate = Depends(UserAdminUpdate.as_form),
+    avatar: UploadFile | None = File(None),
+    request: Request = None,
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
+    client_ip = request.client.host if request and request.client else "unknown"
+    check_user_write_rate_limit(client_ip)
+
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -121,6 +215,20 @@ def update_user(
             raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
         if payload.role is not None and payload.role != UserRole.admin:
             raise HTTPException(status_code=400, detail="Cannot change your own admin role")
+
+    if avatar is not None:
+        old_avatar_url = user.avatar_url
+        payload.avatar_url = await _upload_avatar_to_cloudinary(
+            avatar=avatar,
+            user_prefix=f"user_{user.id}",
+        )
+        if old_avatar_url and old_avatar_url != payload.avatar_url:
+            try:
+                from app.utils.cloudinary import delete_image_by_url
+
+                delete_image_by_url(old_avatar_url)
+            except Exception:
+                pass
 
     was_active = user.is_active
     user = update_user_admin(db, user, payload)
@@ -141,9 +249,13 @@ def update_user(
 def remove_user(
     user_id: int,
     hard_delete: bool = Query(False, description="Xóa vĩnh viễn khỏi database"),
+    request: Request = None,
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
+    client_ip = request.client.host if request and request.client else "unknown"
+    check_user_write_rate_limit(client_ip)
+
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

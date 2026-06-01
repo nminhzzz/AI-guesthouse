@@ -34,6 +34,13 @@ class Settings:
     LOGIN_RATE_WINDOW_SECONDS: int = int(os.getenv("LOGIN_RATE_WINDOW_SECONDS", str(15 * 60)))
     REGISTER_RATE_LIMIT: int = int(os.getenv("REGISTER_RATE_LIMIT", "10"))
     REGISTER_RATE_WINDOW_SECONDS: int = int(os.getenv("REGISTER_RATE_WINDOW_SECONDS", str(60 * 60)))
+    USER_WRITE_RATE_LIMIT: int = int(os.getenv("USER_WRITE_RATE_LIMIT", "30"))
+    USER_WRITE_RATE_WINDOW_SECONDS: int = int(os.getenv("USER_WRITE_RATE_WINDOW_SECONDS", str(10 * 60)))
+
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
 
     @property
     def is_production(self) -> bool:

@@ -65,6 +65,10 @@ def get_current_user(
 def get_current_admin(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    # Production thường nên check role thật sự.
-    # Theo yêu cầu của bạn: chỉ cần token hợp lệ, không xét role.
+    # Enforce admin role for management endpoints.
+    if current_user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
     return current_user
