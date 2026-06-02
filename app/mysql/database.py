@@ -1,12 +1,12 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
-
 from urllib.parse import quote_plus
 
-from app.core.config import settings
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-password = quote_plus(settings.MYSQL_PASSWORD)
+from app.core.config import settings
+from app.mysql.base import Base  # noqa: F401 — re-exported for convenience
+
+password = quote_plus(settings.MYSQL_PASSWORD or "")
 
 DATABASE_URL = (
     f"mysql+pymysql://"
@@ -17,13 +17,14 @@ DATABASE_URL = (
     f"{settings.MYSQL_DB}"
 )
 
-
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
 )
-
-Base = declarative_base()

@@ -41,6 +41,12 @@ class Settings:
     CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
     CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
+    # CORS — comma-separated origins, e.g. "https://yourdomain.com,https://www.yourdomain.com"
+    CORS_ORIGINS: list[str] = [
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+        if o.strip()
+    ]
 
     @property
     def is_production(self) -> bool:

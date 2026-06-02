@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, Form, HTTPException
+from pydantic import ValidationError
 
 from app.core.dependencies import  get_current_user
 from app.mysql.models.user_model import User
@@ -27,10 +28,18 @@ async def create_room(
     images: list[UploadFile] | None = File(default=None),
     current_user: User = Depends(get_current_user)
 ):
-    # room_data is sent as a JSON string in multipart/form-data
-    room_model = RoomCreate.model_validate_json(room_data)
+    try:
+        room_model = RoomCreate.model_validate_json(room_data)
+    except ValidationError as e:
+        errors = "; ".join(
+            f"{' -> '.join(str(x) for x in err['loc'])}: {err['msg']}"
+            for err in e.errors(include_url=False)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Validation Error: {errors}"
+        )
 
-    # Validate image count at the route level
     if images is None or len(images) < 3 or len(images) > 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -119,10 +128,18 @@ async def update_room(
     images: list[UploadFile] | None = File(default=None),
     current_user: User = Depends(get_current_user)
 ):
-    # room_data is sent as a JSON string in multipart/form-data
-    room_model = RoomUpdate.model_validate_json(room_data)
+    try:
+        room_model = RoomUpdate.model_validate_json(room_data)
+    except ValidationError as e:
+        errors = "; ".join(
+            f"{' -> '.join(str(x) for x in err['loc'])}: {err['msg']}"
+            for err in e.errors(include_url=False)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Validation Error: {errors}"
+        )
 
-    # Validate image count if images are provided
     if images is not None and len(images) > 0:
         if len(images) < 3 or len(images) > 6:
             raise HTTPException(

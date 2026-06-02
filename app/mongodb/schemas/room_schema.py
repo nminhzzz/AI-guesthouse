@@ -1,7 +1,9 @@
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import List
-from app.mongodb.documents.room_document import Amenity, RoomType, RoomImage
-from typing import Optional
+
+from app.mongodb.documents.room_document import Amenity, RoomImage, RoomType
+
 
 class RoomCreate(BaseModel):
 
@@ -11,11 +13,11 @@ class RoomCreate(BaseModel):
 
     room_type: RoomType
 
-    price: int
+    price: int = Field(..., gt=0)
 
-    deposit: int
+    deposit: int = Field(..., ge=0)
 
-    area: float
+    area: float = Field(..., gt=0)
 
     address: str
 
@@ -25,28 +27,27 @@ class RoomCreate(BaseModel):
 
     city: str
 
-    max_people: int
+    max_people: int = Field(..., ge=1)
 
     amenities: List[Amenity] = []
 
 
-
-
 class RoomUpdate(BaseModel):
 
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=10)
 
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, min_length=20)
 
-    price: Optional[int] = None
+    price: Optional[int] = Field(default=None, gt=0)
 
-    deposit: Optional[int] = None
+    deposit: Optional[int] = Field(default=None, ge=0)
 
-    area: Optional[float] = None
+    area: Optional[float] = Field(default=None, gt=0)
 
-    max_people: Optional[int] = None
+    max_people: Optional[int] = Field(default=None, ge=1)
 
     amenities: Optional[List[Amenity]] = None
+
 
 class RoomResponse(BaseModel):
 

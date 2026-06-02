@@ -56,8 +56,6 @@ async def _upload_avatar_to_cloudinary(avatar: UploadFile, user_prefix: str) -> 
             folder="ai_guesthouse/users/avatars",
         )
     except Exception as exc:
-        print(exc)
-
         raise HTTPException(status_code=500, detail=f"Avatar upload failed: {str(exc)}") from exc
 
     avatar_url = upload_result.get("secure_url")
@@ -168,7 +166,6 @@ async def create_user(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin),
 ):
-    print("CREATE USER ROUTE HIT")
     client_ip = request.client.host if request and request.client else "unknown"
     check_user_write_rate_limit(client_ip)
 
