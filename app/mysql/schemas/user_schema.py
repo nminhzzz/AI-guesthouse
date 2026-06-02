@@ -70,8 +70,6 @@ class UserAdminCreate(UserBase):
         is_verified: bool = Form(False),
         is_active: bool = Form(True),
     ) -> "UserAdminCreate":
-        print("AS_FORM CALLED")
-        print(name, email)
         return cls(
             name=name,
             email=email,

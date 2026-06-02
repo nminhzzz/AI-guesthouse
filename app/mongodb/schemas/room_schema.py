@@ -32,7 +32,6 @@ class RoomCreate(BaseModel):
 
 
 
-
 class RoomUpdate(BaseModel):
 
     title: Optional[str] = None

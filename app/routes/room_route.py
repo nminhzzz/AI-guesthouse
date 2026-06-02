@@ -115,13 +115,26 @@ async def get_room_by_id(
 @router.put("/{room_id}")
 async def update_room(
     room_id: str,
-    room_data: RoomUpdate,
+    room_data: str = Form(...),
+    images: list[UploadFile] | None = File(default=None),
     current_user: User = Depends(get_current_user)
 ):
+    # room_data is sent as a JSON string in multipart/form-data
+    room_model = RoomUpdate.model_validate_json(room_data)
+
+    # Validate image count if images are provided
+    if images is not None and len(images) > 0:
+        if len(images) < 3 or len(images) > 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please upload between 3 and 6 images"
+            )
+
     return await RoomService.update_room(
         room_id=room_id,
-        room_data=room_data,
-        current_user=current_user
+        room_data=room_model,
+        current_user=current_user,
+        images=images,
     )
 
 

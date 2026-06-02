@@ -182,7 +182,8 @@ class RoomService:
     async def update_room(
         room_id: str,
         room_data: RoomUpdate,
-        current_user: User
+        current_user: User,
+        images: list[UploadFile] | None = None,
     ) -> Room:
 
         try:
@@ -207,15 +208,91 @@ class RoomService:
                 detail="You are not owner of this room"
             )
 
-        update_data = room_data.model_dump(
-            exclude_unset=True
-        )
-
+        # Update basic fields
+        update_data = room_data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(room, key, value)
 
-        room.updated_at = datetime.now(timezone.utc)
+        # Handle image upload if new images provided
+        if images and len(images) > 0:
+            uploaded_public_ids: list[str] = []
+            old_images = room.images  # keep reference to delete on success
 
+            try:
+                if len(images) < 3 or len(images) > 6:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Please upload between 3 and 6 images",
+                    )
+
+                new_images: list[RoomImage] = []
+                folder = f"rooms/{str(room.id)}"
+
+                for idx, img in enumerate(images):
+                    file_bytes = await img.read()
+                    # Use timestamp-based suffix to avoid collision with old public_ids
+                    public_id = f"room_{str(room.id)}_u{int(datetime.now(timezone.utc).timestamp())}_{idx}"
+                    res = upload_image(file_bytes, public_id, folder)
+                    url = res.get("secure_url") or res.get("url")
+                    width = res.get("width")
+                    height = res.get("height")
+
+                    if not url:
+                        raise Exception("Cloudinary upload returned no url")
+                    if width is None or height is None:
+                        raise Exception("Cloudinary upload returned no width/height")
+
+                    uploaded_public_ids.append(public_id)
+                    new_images.append(RoomImage(
+                        public_id=public_id,
+                        url=url,
+                        width=width,
+                        height=height
+                    ))
+
+                # Replace images on the document
+                room.images = new_images
+                room.thumbnail_index = 0
+
+                # Delete old images from Cloudinary after successful upload
+                # old_img.url contains the full Cloudinary URL — use delete_image_by_url
+                for old_img in old_images:
+                    try:
+                        delete_image_by_url(old_img.url)
+                    except Exception:
+                        pass
+
+            except HTTPException:
+                # Clean up newly uploaded images before re-raising
+                for pid in uploaded_public_ids:
+                    try:
+                        folder = f"rooms/{str(room.id)}"
+                        cloudinary.uploader.destroy(
+                            f"{folder}/{pid}",
+                            resource_type="image",
+                            invalidate=True
+                        )
+                    except Exception:
+                        pass
+                raise
+            except Exception as e:
+                # Clean up newly uploaded images before raising 500
+                for pid in uploaded_public_ids:
+                    try:
+                        folder = f"rooms/{str(room.id)}"
+                        cloudinary.uploader.destroy(
+                            f"{folder}/{pid}",
+                            resource_type="image",
+                            invalidate=True
+                        )
+                    except Exception:
+                        pass
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to upload images: {str(e)}",
+                )
+
+        room.updated_at = datetime.now(timezone.utc)
         await room.save()
 
         return room

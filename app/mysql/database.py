@@ -17,7 +17,6 @@ DATABASE_URL = (
     f"{settings.MYSQL_DB}"
 )
 
-print(DATABASE_URL)
 
 engine = create_engine(DATABASE_URL)
 
