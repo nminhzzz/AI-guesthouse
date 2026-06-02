@@ -2,6 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
 from app.core.config import settings
+from app.mongodb.documents.room_document import Room
 
 
 async def connect_mongo():
@@ -9,5 +10,5 @@ async def connect_mongo():
     db = client[settings.MONGO_DB]
     await init_beanie(
         database=db,
-        document_models=[],
+        document_models=[Room],
     )
