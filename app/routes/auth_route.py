@@ -145,6 +145,9 @@ def login(
     token_data = _issue_tokens(user, response)
     reset_login_rate_limit(client_ip, str(payload.email))
 
+    # Gắn user vào response để frontend không cần gọi /auth/me thêm
+    token_data.user = UserResponse.model_validate(user)
+
     return ApiResponse.success(
         data=token_data,
         message="Login successful",

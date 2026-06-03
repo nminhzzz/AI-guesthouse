@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from app.mysql.schemas.user_schema import UserResponse
 
 
 # ── Trả về sau khi login thành công ───────────────────────────
@@ -6,6 +7,7 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     csrf_token: str | None = None
+    user: UserResponse | None = None
 
 
 class LoginRequest(BaseModel):
