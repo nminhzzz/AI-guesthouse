@@ -6,13 +6,14 @@ from app.core.config import settings
 # Import all documents here so init_beanie registers them.
 # When adding a new document, add it to this list.
 from app.mongodb.documents.room_document import Room
+from app.mongodb.documents.favorite_document import Favorite
 
 
 DOCUMENT_MODELS = [
     Room,
+    Favorite,
     # Add new documents below as the project grows:
     # BehaviorDocument,
-    # FavoriteDocument,
     # MessageDocument,
 ]
 

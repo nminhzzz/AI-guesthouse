@@ -168,8 +168,6 @@ def refresh_token(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    verify_csrf(request)
-
     refresh_token_value = request.cookies.get("refresh_token")
     if not refresh_token_value:
         raise HTTPException(status_code=401, detail="Refresh token missing")
@@ -241,8 +239,6 @@ def refresh_token(
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
-    verify_csrf(request)
-
     refresh_token_value = request.cookies.get("refresh_token")
     auth_header = request.headers.get("Authorization", "")
 

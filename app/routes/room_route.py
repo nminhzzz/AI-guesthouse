@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, Form, HTTPException
 from pydantic import ValidationError
 
-from app.core.dependencies import  get_current_user
+from app.core.dependencies import get_current_user, get_current_admin
 from app.mysql.models.user_model import User
 
+from app.mongodb.documents.room_document import GenderType, RoomType, Amenity, RoomStatus
 from app.mongodb.schemas.room_schema import (
     RoomCreate,
     RoomUpdate
@@ -74,18 +75,44 @@ async def get_rooms(
 
 @router.get("/search/filter")
 async def search_rooms(
-    district: str | None = None,
-    city: str | None = None,
+    room_type: RoomType | None = None,
     min_price: int | None = None,
     max_price: int | None = None,
+    min_area: float | None = None,
+    max_area: float | None = None,
+    city: str | None = None,
+    district: str | None = None,
+    ward: str | None = None,
+    amenities: str | None = Query(None, description="Comma-separated list of amenities, e.g., wifi,parking"),
+    gender: GenderType | None = None,
+    sort_by: str = Query("created_at", regex="^(created_at|price|area|views)$"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100)
 ):
+    parsed_amenities = None
+    if amenities:
+        try:
+            parsed_amenities = [Amenity(a.strip()) for a in amenities.split(",") if a.strip()]
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid amenity value. Allowed: {', '.join(a.value for a in Amenity)}"
+            )
+
     return await RoomService.search_rooms(
-        district=district,
-        city=city,
+        room_type=room_type,
         min_price=min_price,
         max_price=max_price,
+        min_area=min_area,
+        max_area=max_area,
+        city=city,
+        district=district,
+        ward=ward,
+        amenities=parsed_amenities,
+        gender=gender,
+        sort_by=sort_by,
+        sort_order=sort_order,
         page=page,
         limit=limit
     )
@@ -101,6 +128,68 @@ async def get_my_rooms(
 ):
     return await RoomService.get_my_rooms(
         current_user=current_user
+    )
+# ======================================
+# GET MY FAVORITE ROOMS
+# ======================================
+
+@router.get("/favorites/my")
+async def get_my_favorites(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    current_user: User = Depends(get_current_user)
+):
+    return await RoomService.get_my_favorites(
+        current_user_id=current_user.id,
+        page=page,
+        limit=limit
+    )
+
+
+# ======================================
+# TOGGLE FAVORITE ROOM
+# ======================================
+
+@router.post("/{room_id}/favorite")
+async def toggle_favorite(
+    room_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    return await RoomService.toggle_favorite(
+        room_id=room_id,
+        current_user_id=current_user.id
+    )
+
+
+# ======================================
+# MARK ROOM AS RENTED
+# ======================================
+
+@router.patch("/{room_id}/rented")
+async def mark_as_rented(
+    room_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    return await RoomService.mark_as_rented(
+        room_id=room_id,
+        current_user=current_user
+    )
+
+
+# ======================================
+# GET ROOMS BY OWNER
+# ======================================
+
+@router.get("/owner/{owner_id}")
+async def get_rooms_by_owner(
+    owner_id: int,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100)
+):
+    return await RoomService.get_rooms_by_owner(
+        owner_id=owner_id,
+        page=page,
+        limit=limit
     )
 
 
@@ -198,3 +287,93 @@ async def delete_room(
         room_id=room_id,
         current_user=current_user
     )
+
+
+# ======================================
+# ADMIN — LIST ALL ROOMS (mọi status)
+# ======================================
+
+@router.get("/admin/list")
+async def admin_list_rooms(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    status_filter: RoomStatus | None = Query(default=None, alias="status"),
+    room_type: RoomType | None = None,
+    city: str | None = None,
+    district: str | None = None,
+    search: str | None = None,
+    sort_by: str = Query("created_at", regex="^(created_at|price|area|views)$"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_list_rooms(
+        page=page,
+        limit=limit,
+        status_filter=status_filter,
+        room_type=room_type,
+        city=city,
+        district=district,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+# ======================================
+# ADMIN — APPROVE ROOM
+# ======================================
+
+@router.patch("/admin/{room_id}/approve")
+async def admin_approve_room(
+    room_id: str,
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_approve_room(room_id)
+
+
+# ======================================
+# ADMIN — REJECT ROOM
+# ======================================
+
+@router.patch("/admin/{room_id}/reject")
+async def admin_reject_room(
+    room_id: str,
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_reject_room(room_id)
+
+
+# ======================================
+# ADMIN — HIDE ROOM (vi phạm)
+# ======================================
+
+@router.patch("/admin/{room_id}/hide")
+async def admin_hide_room(
+    room_id: str,
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_hide_room(room_id)
+
+
+# ======================================
+# ADMIN — RESTORE ROOM (pending lại)
+# ======================================
+
+@router.patch("/admin/{room_id}/restore")
+async def admin_restore_room(
+    room_id: str,
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_restore_room(room_id)
+
+
+# ======================================
+# ADMIN — DELETE ROOM (hard soft-delete)
+# ======================================
+
+@router.delete("/admin/{room_id}")
+async def admin_delete_room(
+    room_id: str,
+    _: User = Depends(get_current_admin),
+):
+    return await RoomService.admin_delete_room(room_id)

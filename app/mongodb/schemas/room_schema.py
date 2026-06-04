@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.mongodb.documents.room_document import Amenity, RoomImage, RoomType
+from app.mongodb.documents.room_document import Amenity, RoomImage, RoomType, GenderType
 
 
 class RoomCreate(BaseModel):
@@ -29,6 +29,8 @@ class RoomCreate(BaseModel):
 
     max_people: int = Field(..., ge=1)
 
+    gender: GenderType = GenderType.all
+
     amenities: List[Amenity] = []
 
 
@@ -45,6 +47,8 @@ class RoomUpdate(BaseModel):
     area: Optional[float] = Field(default=None, gt=0)
 
     max_people: Optional[int] = Field(default=None, ge=1)
+
+    gender: Optional[GenderType] = None
 
     amenities: Optional[List[Amenity]] = None
 

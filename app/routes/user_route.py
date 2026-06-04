@@ -242,6 +242,48 @@ async def update_user(
     )
 
 
+@router.patch("/{user_id}", response_model=ApiResponse[UserResponse])
+async def patch_user(
+    user_id: int,
+    payload: UserAdminUpdate,
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    """Cập nhật một phần thông tin user qua JSON body (không có file upload)."""
+    client_ip = request.client.host if request and request.client else "unknown"
+    check_user_write_rate_limit(client_ip)
+
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.email:
+        existing = get_user_by_email(db, payload.email)
+        if existing and existing.id != user.id:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
+    if user.id == current_admin.id:
+        if payload.is_active is False:
+            raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        if payload.role is not None and payload.role != UserRole.admin:
+            raise HTTPException(status_code=400, detail="Cannot change your own admin role")
+
+    was_active = user.is_active
+    user = update_user_admin(db, user, payload)
+
+    if was_active and user.is_active is False:
+        revoke_all_user_sessions(str(user.id))
+
+    if payload.role is not None or payload.password is not None:
+        revoke_all_user_sessions(str(user.id))
+
+    return ApiResponse.success(
+        data=UserResponse.model_validate(user),
+        message="User updated successfully",
+    )
+
+
 @router.delete("/{user_id}", response_model=ApiResponse[None])
 def remove_user(
     user_id: int,

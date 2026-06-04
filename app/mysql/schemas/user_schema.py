@@ -117,16 +117,17 @@ class UserAdminUpdate(BaseModel):
         is_active: Optional[bool] = Form(None),
         password: Optional[str] = Form(None),
     ) -> "UserAdminUpdate":
-        return cls(
-            name=name,
-            email=email,
-            phone=phone,
-            avatar_url=avatar_url,
-            role=role,
-            is_verified=is_verified,
-            is_active=is_active,
-            password=password,
-        )
+        # Chỉ đưa vào fields thực sự được gửi để model_dump(exclude_unset=True) hoạt động đúng
+        fields: dict = {}
+        if name is not None: fields["name"] = name
+        if email is not None: fields["email"] = email
+        if phone is not None: fields["phone"] = phone
+        if avatar_url is not None: fields["avatar_url"] = avatar_url
+        if role is not None: fields["role"] = role
+        if is_verified is not None: fields["is_verified"] = is_verified
+        if is_active is not None: fields["is_active"] = is_active
+        if password is not None: fields["password"] = password
+        return cls(**fields)
 
 
 class UserResponse(UserBase):

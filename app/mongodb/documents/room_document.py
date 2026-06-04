@@ -22,6 +22,12 @@ class RoomStatus(str, Enum):
 
 
 
+class GenderType(str, Enum):
+    all = "all"
+    male = "male"
+    female = "female"
+
+
 class Amenity(str, Enum):
     wifi = "wifi"
     parking = "parking"
@@ -84,6 +90,8 @@ class Room(Document):
     # ===== SỨC CHỨA =====
 
     max_people: int = 1
+
+    gender: GenderType = GenderType.all
 
     # ===== TIỆN ÍCH =====
 
