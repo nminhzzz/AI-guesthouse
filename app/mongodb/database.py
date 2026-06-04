@@ -7,11 +7,13 @@ from app.core.config import settings
 # When adding a new document, add it to this list.
 from app.mongodb.documents.room_document import Room
 from app.mongodb.documents.favorite_document import Favorite
+from app.mongodb.documents.notification_document import Notification
 
 
 DOCUMENT_MODELS = [
     Room,
     Favorite,
+    Notification,
     # Add new documents below as the project grows:
     # BehaviorDocument,
     # MessageDocument,

@@ -11,6 +11,7 @@ from app.mongodb.schemas.room_schema import (
 )
 
 from app.services.room_service import RoomService
+from app.services.notification_service import NotificationService
 
 
 router = APIRouter(
@@ -328,7 +329,13 @@ async def admin_approve_room(
     room_id: str,
     _: User = Depends(get_current_admin),
 ):
-    return await RoomService.admin_approve_room(room_id)
+    room = await RoomService.admin_approve_room(room_id)
+    await NotificationService.notify_room_approved(
+        owner_id=room.owner_id,
+        room_id=room_id,
+        room_title=room.title,
+    )
+    return room
 
 
 # ======================================
@@ -340,7 +347,13 @@ async def admin_reject_room(
     room_id: str,
     _: User = Depends(get_current_admin),
 ):
-    return await RoomService.admin_reject_room(room_id)
+    room = await RoomService.admin_reject_room(room_id)
+    await NotificationService.notify_room_rejected(
+        owner_id=room.owner_id,
+        room_id=room_id,
+        room_title=room.title,
+    )
+    return room
 
 
 # ======================================
@@ -352,7 +365,13 @@ async def admin_hide_room(
     room_id: str,
     _: User = Depends(get_current_admin),
 ):
-    return await RoomService.admin_hide_room(room_id)
+    room = await RoomService.admin_hide_room(room_id)
+    await NotificationService.notify_room_hidden(
+        owner_id=room.owner_id,
+        room_id=room_id,
+        room_title=room.title,
+    )
+    return room
 
 
 # ======================================

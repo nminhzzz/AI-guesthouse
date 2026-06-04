@@ -67,6 +67,7 @@ def get_route_modules() -> list[str]:
         "app.routes.auth_route",
         "app.routes.room_route",
         "app.routes.user_route",
+        "app.routes.notification_route",
         # Uncomment when implemented:
         # "app.routes.chat_route",
         # "app.routes.ai_route",
