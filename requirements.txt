@@ -3,11 +3,11 @@ uvicorn
 sqlalchemy
 pymysql
 alembic
-motor
-beanie
+motor==3.6.0
+beanie==1.29.0
 redis
 python-dotenv
-passlib[bcrypt]
+bcrypt
 python-jose
 python-multipart
 email-validator

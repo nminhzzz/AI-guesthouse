@@ -41,6 +41,18 @@ class NotificationService:
     # ─────────────────────────────────────────
 
     @staticmethod
+    async def notify_new_room_pending(admin_ids: list[int], room_id: str, room_title: str, owner_name: str):
+        """Gửi thông báo cho tất cả admin khi có phòng mới chờ duyệt."""
+        for admin_id in admin_ids:
+            await NotificationService.create(
+                user_id=admin_id,
+                type=NotificationType.system,
+                title="Có phòng mới cần duyệt 🏠",
+                body=f'Chủ nhà "{owner_name}" vừa đăng phòng "{room_title}". Vui lòng xem xét và duyệt.',
+                data={"room_id": room_id},
+            )
+
+    @staticmethod
     async def notify_room_approved(owner_id: int, room_id: str, room_title: str):
         await NotificationService.create(
             user_id=owner_id,

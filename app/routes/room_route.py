@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, Form, HTTPException
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, get_current_admin
+from app.mysql.dependencies import get_db
 from app.mysql.models.user_model import User
 
 from app.mongodb.documents.room_document import GenderType, RoomType, Amenity, RoomStatus
@@ -12,6 +14,7 @@ from app.mongodb.schemas.room_schema import (
 
 from app.services.room_service import RoomService
 from app.services.notification_service import NotificationService
+from app.services.user_service import get_all_admins
 
 
 router = APIRouter(
@@ -28,7 +31,8 @@ router = APIRouter(
 async def create_room(
     room_data: str = Form(...),
     images: list[UploadFile] | None = File(default=None),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     try:
         room_model = RoomCreate.model_validate_json(room_data)
@@ -48,11 +52,24 @@ async def create_room(
             detail="Please upload between 3 and 6 images"
         )
 
-    return await RoomService.create_room(
+    room = await RoomService.create_room(
         room_data=room_model,
         current_user=current_user,
         images=images,
     )
+
+    # Gửi thông báo cho tất cả admin về phòng mới chờ duyệt
+    admins = get_all_admins(db)
+    if admins:
+        admin_ids = [a.id for a in admins]
+        await NotificationService.notify_new_room_pending(
+            admin_ids=admin_ids,
+            room_id=str(room.id),
+            room_title=room.title,
+            owner_name=current_user.name,
+        )
+
+    return room
 
 
 # ======================================

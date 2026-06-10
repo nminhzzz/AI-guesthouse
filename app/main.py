@@ -86,15 +86,41 @@ def iter_routers() -> Iterator[APIRouter]:
 # STARTUP / SHUTDOWN
 # ======================================
 
-def connect_mysql() -> None:
-    with engine.connect() as connection:
-        connection.execute(text("SELECT 1"))
-    logger.info("MySQL connected")
+def connect_mysql(retries: int = 10, delay: int = 3) -> None:
+    """Retry kết nối MySQL — cần thiết khi chạy trong Docker
+    vì MySQL container có thể chưa sẵn sàng ngay sau healthcheck."""
+    import time
+    for attempt in range(1, retries + 1):
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            logger.info("MySQL connected")
+            return
+        except Exception as e:
+            if attempt == retries:
+                raise
+            logger.warning(
+                "MySQL not ready (attempt %d/%d): %s — retrying in %ds...",
+                attempt, retries, e, delay
+            )
+            time.sleep(delay)
 
 
-def connect_redis() -> None:
-    redis_client.ping()
-    logger.info("Redis connected")
+def connect_redis(retries: int = 5, delay: int = 2) -> None:
+    import time
+    for attempt in range(1, retries + 1):
+        try:
+            redis_client.ping()
+            logger.info("Redis connected")
+            return
+        except Exception as e:
+            if attempt == retries:
+                raise
+            logger.warning(
+                "Redis not ready (attempt %d/%d): %s — retrying in %ds...",
+                attempt, retries, e, delay
+            )
+            time.sleep(delay)
 
 
 @asynccontextmanager

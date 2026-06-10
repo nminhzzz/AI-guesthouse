@@ -24,6 +24,13 @@ SORTABLE_COLUMNS = {
 }
 
 
+def get_all_admins(db: Session) -> list[User]:
+    """Lấy tất cả user có role admin và đang active."""
+    return list(db.scalars(
+        select(User).where(User.role == UserRole.admin, User.is_active == True)
+    ).all())
+
+
 def get_user_by_email(db: Session, email: str | EmailStr) -> User | None:
     return db.scalars(
         select(User).where(User.email == str(email))

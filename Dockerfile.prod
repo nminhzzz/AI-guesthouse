@@ -1,0 +1,57 @@
+# =============================================================
+# Dockerfile.prod — Backend FastAPI (Production)
+# Multi-stage build — pymysql pure Python, không cần gcc
+# Stage builder: cài packages
+# Stage runtime: image gọn, chạy gunicorn
+# =============================================================
+
+# ─────────────────────────────────────────
+# Stage 1: Builder
+# ─────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt \
+    && pip install --no-cache-dir --prefix=/install gunicorn
+
+# ─────────────────────────────────────────
+# Stage 2: Runtime
+# ─────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    APP_ENV=production \
+    DEBUG=false
+
+WORKDIR /app
+
+# Copy packages từ builder
+COPY --from=builder /install /usr/local
+
+# Tạo user không root
+RUN groupadd --gid 1001 appgroup \
+    && useradd --uid 1001 --gid appgroup --no-create-home appuser
+
+# Copy source, bỏ .env
+COPY --chown=appuser:appgroup . .
+RUN rm -f .env .env.*
+
+USER appuser
+
+EXPOSE 8000
+
+# 4 workers, UvicornWorker để chạy ASGI async
+CMD ["gunicorn", "app.main:app", \
+     "-w", "4", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

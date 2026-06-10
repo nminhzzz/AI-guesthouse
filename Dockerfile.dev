@@ -1,0 +1,31 @@
+# =============================================================
+# Dockerfile.dev — Backend FastAPI (Development)
+# - pymysql là pure Python → không cần gcc hay libmysqlclient
+# - Mount source code để hot-reload với uvicorn --reload
+# =============================================================
+
+FROM python:3.11-slim
+
+LABEL environment="development"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# curl dùng cho healthcheck, không cần gcc/libmysqlclient vì dùng pymysql
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cài Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy source (sẽ bị override bởi volume mount trong dev)
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

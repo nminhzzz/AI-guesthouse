@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Alembic versions (chỉ commit versions, không copy __pycache__)
+alembic/versions/__pycache__/
+
+# Tests
+tests/
+test_*.py
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Secrets (không bao giờ copy vào image)
+.env
+.env.*
